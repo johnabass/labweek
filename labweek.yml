@@ -1,0 +1,20 @@
+servers:
+    main:
+        address: ":8080"
+
+plugin:
+    path: ./plugin/plugin.so
+
+pluginHandler:
+    symbol: Handle
+
+logging:
+    development: true
+    level: debug
+    encoderConfig:
+        messageKey: msg
+        levelKey: level
+        timeKey: ts
+        nameKey: name
+        callerKey: caller
+
