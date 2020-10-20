@@ -8,6 +8,9 @@ plugin:
 pluginHandler:
     symbol: Handle
 
+script: |-
+    header("X-Script1", ["true"]);
+
 logging:
     development: true
     level: debug

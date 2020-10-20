@@ -7,6 +7,7 @@ import (
 	"plugin"
 
 	"github.com/gorilla/mux"
+	"github.com/robertkrimen/otto"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
@@ -43,6 +44,16 @@ func main() {
 
 				return PluginHandler{}, err
 			},
+			func(v *viper.Viper) (*otto.Script, error) {
+				vm := otto.New()
+				return vm.Compile(
+					"script",
+					v.Get("script"),
+				)
+			},
+			func(s *otto.Script) ScriptHandler {
+				return ScriptHandler{S: s}
+			},
 			arrangehttp.Server().
 				ServerFactory(arrangehttp.ServerConfig{
 					Address: ":8080", // default
@@ -50,8 +61,9 @@ func main() {
 				UnmarshalKey("servers.main"),
 		),
 		fx.Invoke(
-			func(r *mux.Router, ph PluginHandler) {
+			func(r *mux.Router, ph PluginHandler, sh ScriptHandler) {
 				r.Handle("/plugin", ph)
+				r.Handle("/script", sh)
 			},
 		),
 	)
