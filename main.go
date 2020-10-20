@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"net/http"
+	httppprof "net/http/pprof"
 	"os"
 	"plugin"
+	"runtime/pprof"
 
 	"github.com/gorilla/mux"
 	"github.com/robertkrimen/otto"
@@ -54,16 +56,33 @@ func main() {
 			func(s *otto.Script) ScriptHandler {
 				return ScriptHandler{S: s}
 			},
-			arrangehttp.Server().
-				ServerFactory(arrangehttp.ServerConfig{
-					Address: ":8080", // default
-				}).
-				UnmarshalKey("servers.main"),
 		),
+		arrangehttp.Server().
+			ServerFactory(arrangehttp.ServerConfig{
+				Address: ":8080", // default
+			}).
+			ProvideKey("servers.main"),
 		fx.Invoke(
-			func(r *mux.Router, ph PluginHandler, sh ScriptHandler) {
-				r.Handle("/plugin", ph)
-				r.Handle("/script", sh)
+			func(in struct {
+				fx.In
+				Router        *mux.Router `name:"servers.main"`
+				PluginHandler PluginHandler
+				ScriptHandler ScriptHandler
+			}) {
+				in.Router.Handle("/plugin", in.PluginHandler)
+				in.Router.Handle("/script", in.ScriptHandler)
+
+				// TODO: arrangehttp should really provide a pprof integration
+
+				in.Router.HandleFunc("/debug/pprof/", httppprof.Index)
+				in.Router.HandleFunc("/debug/pprof/cmdline", httppprof.Cmdline)
+				in.Router.HandleFunc("/debug/pprof/profile", httppprof.Profile)
+				in.Router.HandleFunc("/debug/pprof/symbol", httppprof.Symbol)
+				in.Router.HandleFunc("/debug/pprof/trace", httppprof.Trace)
+
+				for _, p := range pprof.Profiles() {
+					in.Router.HandleFunc("/debug/pprof/"+p.Name(), httppprof.Index)
+				}
 			},
 		),
 	)
