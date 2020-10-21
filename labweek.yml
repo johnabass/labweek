@@ -19,5 +19,4 @@ logging:
         levelKey: level
         timeKey: ts
         nameKey: name
-        callerKey: caller
 
