@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/gorilla/mux v1.7.4
 	github.com/robertkrimen/otto v0.0.0-20200922221731-ef014fd054ac
+	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.7.0
 	github.com/xmidt-org/arrange v0.2.0
 	github.com/xmidt-org/sallust v0.1.3

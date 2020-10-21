@@ -17,16 +17,22 @@ import (
 )
 
 func main() {
-	l, v, err := setup(os.Args[1:])
+	v, err := newViper()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "Could not initialize viper: %s\n", err)
+		os.Exit(1)
+	}
+
+	l, p, err := parseCmdLine(os.Args[1:], v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not parse command line: %s\n", err)
 		os.Exit(1)
 	}
 
 	app := fx.New(
 		arrange.LoggerFunc(l.Sugar().Infof),
 		arrange.ForViper(v),
-		fx.Supply(v),
+		fx.Supply(v, p),
 		fx.Provide(
 			func(v *viper.Viper) (*plugin.Plugin, error) {
 				return plugin.Open(
@@ -63,6 +69,12 @@ func main() {
 			}).
 			ProvideKey("servers.main"),
 		fx.Invoke(
+			func(l fx.Lifecycle, p *Profiling) {
+				l.Append(fx.Hook{
+					OnStart: p.Start,
+					OnStop:  p.Stop,
+				})
+			},
 			func(in struct {
 				fx.In
 				Router        *mux.Router `name:"servers.main"`
