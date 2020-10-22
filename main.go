@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	httppprof "net/http/pprof"
 	"os"
@@ -14,6 +16,7 @@ import (
 	"github.com/xmidt-org/arrange"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -32,7 +35,7 @@ func main() {
 	app := fx.New(
 		arrange.LoggerFunc(l.Sugar().Infof),
 		arrange.ForViper(v),
-		fx.Supply(v, p),
+		fx.Supply(v, l, p),
 		fx.Provide(
 			func(v *viper.Viper) (*plugin.Plugin, error) {
 				return plugin.Open(
@@ -52,6 +55,20 @@ func main() {
 
 				return PluginHandler{}, err
 			},
+			func(l *zap.Logger, p *plugin.Plugin) (func(net.Listener) net.Listener, error) {
+				s, err := p.Lookup("DecorateListener")
+				if err == nil {
+					if d, ok := s.(func(*zap.Logger, net.Listener) net.Listener); ok {
+						return func(next net.Listener) net.Listener {
+							return d(l, next)
+						}, nil
+					}
+
+					err = errors.New("DecorateListener is the wrong type")
+				}
+
+				return nil, err
+			},
 			func(v *viper.Viper) (*otto.Script, error) {
 				vm := otto.New()
 				return vm.Compile(
@@ -67,6 +84,10 @@ func main() {
 			ServerFactory(arrangehttp.ServerConfig{
 				Address: ":8080", // default
 			}).
+			Inject(struct {
+				fx.In
+				L func(net.Listener) net.Listener
+			}{}).
 			ProvideKey("servers.main"),
 		fx.Invoke(
 			func(l fx.Lifecycle, p *Profiling) {
